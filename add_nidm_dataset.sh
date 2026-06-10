@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-# Usage: ./script.sh
+# Usage: ./script.sh <NIDM_DERIVATIVE>
 
+NIDM_DERIVATIVE="${1:-nidm}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 STUDY_DIR="$SCRIPT_DIR/.."
 NIDM_URL_CSV="$SCRIPT_DIR/url-nidm.csv"
@@ -23,22 +24,22 @@ site="$(basename "$STUDY_DIR")"
 echo "=== Site: $site"
 cd $STUDY_DIR
 echo "===Current dir: $(pwd)"
-nidm="derivatives/nidm_n5"
+nidm_dir="derivatives/$NIDM_DERIVATIVE"
 #raw_data="sourcedata/raw"
 log_dir="$LOG_ROOT/$site"
 
 # Ensure nidm subdataset
-if datalad -C "$nidm" status >/dev/null 2>&1; then
+if datalad -C "$nidm_dir" status >/dev/null 2>&1; then
     echo " - nidm subdataset present"
 else
     echo " - creating nidm subdataset"
-    datalad -C "." create -d . -c text2git "$nidm"
+    datalad -C "." create -d . -c text2git "$nidm_dir"
     datalad -C "." save -m "Add derivatives/nidm subdataset"
 fi
 
 # Add files from CSV into nidm (paths relative to nidm/)
 echo " - addurls into nidm from CSV"
-cd "$nidm"
+cd "$nidm_dir"
 datalad clone -d . git@github.com:djarecka/simple2_scripts.git code
 
 echo "clone sourcedata"
