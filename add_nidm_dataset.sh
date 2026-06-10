@@ -39,10 +39,7 @@ fi
 # Add files from CSV into nidm (paths relative to nidm/)
 echo " - addurls into nidm from CSV"
 cd "$nidm"
-# TODO: change to clone
-cp -r "$SCRIPT_DIR" "."
-#datalad addurls  --ifexists overwrite "$NIDM_URL_CSV" '{url}' 'code/{path}'
-datalad save -m "Add the code directory"
+datalad clone -d . git@github.com:djarecka/simple2_scripts.git code
 
 echo "clone sourcedata"
 mkdir sourcedata
