@@ -33,8 +33,10 @@ fi
 
 # Add files from CSV into nidm (paths relative to nidm/)
 #echo " - addurls into nidm from CSV"
-datalad addurls  --ifexists overwrite "$NIDM_URL_CSV" '{url}' 'code/{path}'
+cd code
+datalad addurls  --ifexists overwrite "$NIDM_URL_CSV" '{url}' '{path}'
 datalad save -m "Add files via addurls from NIDM_URL_CSV"
+cd ..
 
 conda activate "$ENV_NAME"
 echo "Environment '$ENV_NAME' with pynidm==${PYNIDM_VERSION} activated"
