@@ -35,7 +35,7 @@ if datalad -C "$nidm_dir" status >/dev/null 2>&1; then
 else
     echo " - creating nidm subdataset"
     datalad -C "." create -d . -c text2git "$nidm_dir"
-    datalad -C "." save -m "Add derivatives/nidm subdataset"
+    datalad -C "." save -m "Add derivatives/$NIDM_DERIVATIVE subdataset"
 fi
 
 # Add files from CSV into nidm (paths relative to nidm/)
@@ -53,7 +53,7 @@ output_ttl="nidm.ttl"
 datalad run bash code/create_nidm.sh "$raw_data" "$output_ttl" "$PYNIDM_VERSION"
 
 cd $STUDY_DIR
-datalad save -m "Run the pynidm script and creating the nidm files"
+datalad save -m "Run the pynidm script and creating the nidm files, using pynidm verion: $PYNIDM_VERSION"
 
 echo "✓ Done: $site"
 
