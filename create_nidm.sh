@@ -52,7 +52,7 @@ echo " - running bidsmri2nidm"
 [[ -d "$raw_data" ]] || echo "   WARNING: raw_data directory not found: $raw_data" >&2
 
 bidsmri2nidm \
-  -json_map  "code/vars_to_nidm_map.json" \
+  -json_map  "vars_to_nidm_map.json" \
   -d "$raw_data" \
   -o "$output_ttl" \
   -no_concepts
