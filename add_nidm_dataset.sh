@@ -48,7 +48,8 @@ mkdir sourcedata
 datalad clone -d "." --reckless ephemeral ../../sourcedata/raw sourcedata/raw
 raw_data="sourcedata/raw"
 json_map="code/vars_to_nidm_map.json"
-output_ttl="nidm.ttl"
+output_ttl="$STUDY_DIR/$nidm_dir/nidm.ttl"
+echo "output ttl $output_ttl"
 
 datalad run bash code/create_nidm.sh "$raw_data" "$output_ttl" "$PYNIDM_VERSION"
 
