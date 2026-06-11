@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-# Usage: ./script.sh <raw_data> <output_ttl>
+# Usage: ./script.sh <raw_data> <output_ttl> <PYNIDM_VERSION>
 
 raw_data="$1"
 output_ttl="$2"
@@ -10,8 +10,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 NIDM_URL_CSV="$SCRIPT_DIR/url-nidm.csv"
 
 # using specific version of pynidm
-#PYNIDM_VERSION="4.2.4"
-PYNIDM_VERSION="dev"
+PYNIDM_VERSION="$3"
+#PYNIDM_VERSION="dev"
 ENV_NAME="pynidm_${PYNIDM_VERSION}"
 # TODO: perhaps i can add  datalad to the environment to not have to activate inside the loop
 # Check if env exists

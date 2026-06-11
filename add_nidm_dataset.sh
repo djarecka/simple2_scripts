@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-# Usage: ./script.sh <NIDM_DERIVATIVE>
+# Usage: ./script.sh <PYNIDM_VERSION> <NIDM_DERIVATIVE>
 
-NIDM_DERIVATIVE="${1:-nidm}"
+PYNIDM_VERSION="$1"
+NIDM_DERIVATIVE="${2:-nidm}_$PYNIDM_VERSION"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 STUDY_DIR="$SCRIPT_DIR/.."
 NIDM_URL_CSV="$SCRIPT_DIR/url-nidm.csv"
@@ -49,7 +50,7 @@ raw_data="sourcedata/raw"
 json_map="code/vars_to_nidm_map.json"
 output_ttl="nidm.ttl"
 
-datalad run bash code/create_nidm.sh "$raw_data" "$output_ttl"
+datalad run bash code/create_nidm.sh "$raw_data" "$output_ttl" "$PYNIDM_VERSION"
 
 cd $STUDY_DIR
 datalad save -m "Run the pynidm script and creating the nidm files"
