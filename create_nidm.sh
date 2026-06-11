@@ -23,7 +23,7 @@ else
   conda create -y -n "$ENV_NAME" python=3.11
   source "$(conda info --base)/etc/profile.d/conda.sh"
   conda activate "$ENV_NAME"
-  conda install datalad
+  conda install -c conda-forge datalad
   pip install "pynidm==${PYNIDM_VERSION}"
   conda deactivate
 fi
