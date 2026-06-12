@@ -58,6 +58,15 @@ bidsmri2nidm \
   --per_subject \
   -o "$output_ttl" \
   -no_concepts
+
+# TODO: adding a flag
+# renaming 
+for f in sub-*_nidm.ttl; do
+    sub="${f%_nidm.ttl}"
+    mkdir -p "$sub"
+    mv "$f" "$sub/nidm.ttl"
+done
+
 #todo add logdir
 echo "Environment '$ENV_NAME' deactivated"
 conda deactivate
