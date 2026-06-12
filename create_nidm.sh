@@ -55,6 +55,7 @@ echo " - running bidsmri2nidm"
 bidsmri2nidm \
   -json_map  "vars_to_nidm_map.json" \
   -d "$raw_data" \
+  --per_subject \
   -o "$output_ttl" \
   -no_concepts
 #todo add logdir
