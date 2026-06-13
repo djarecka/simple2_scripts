@@ -23,7 +23,7 @@ else
   conda create -y -n "$ENV_NAME" python=3.11
   source "$(conda info --base)/etc/profile.d/conda.sh"
   conda activate "$ENV_NAME"
-  conda install -c conda-forge -y datalad
+  conda install -c conda-forge -y git-annex
   pip install "pynidm==${PYNIDM_VERSION}"
   conda deactivate
 fi
@@ -61,11 +61,11 @@ bidsmri2nidm \
 
 # TODO: adding a flag
 # renaming 
-for f in sub-*_nidm.ttl; do
-    sub="${f%_nidm.ttl}"
-    mkdir -p "$sub"
-    mv "$f" "$sub/nidm.ttl"
-done
+#for f in sub-*_nidm.ttl; do
+#    sub="${f%_nidm.ttl}"
+#    mkdir -p "$sub"
+#    mv "$f" "$sub/nidm.ttl"
+#done
 
 #todo add logdir
 echo "Environment '$ENV_NAME' deactivated"
