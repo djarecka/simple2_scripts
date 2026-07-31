@@ -22,9 +22,12 @@ set -Eeuo pipefail
 # The derivatives dataset is itself a submodule of its site dataset (e.g.
 # derivatives/babs-fsl-nidm4.5.0 under site-Caltech), so after datalad run
 # moves its HEAD forward, the site dataset's recorded pointer for that
-# submodule goes stale. This script also 'datalad save's the site dataset
-# (assumed to be two levels up: <derivatives_dir>/../..) to keep that
-# pointer in sync.
+# submodule goes stale. This script commits that pointer update in the site
+# dataset (assumed to be two levels up: <derivatives_dir>/../..) with plain
+# 'git add' + 'git commit' -- 'datalad save' scoped to a single subdataset
+# path was found to silently no-op (no error, no commit) on this datalad
+# version (1.2.1), while an unscoped 'datalad save' works but risks sweeping
+# in unrelated pending changes elsewhere in the site dataset.
 
 if [[ $# -ne 1 ]]; then
   echo "Usage: $0 <derivatives_dir>" >&2
@@ -60,8 +63,9 @@ datalad run -m "Merge and unzip babs results" bash -c '
   done
 '
 
-echo "=== datalad save (site dataset, updating submodule pointer) ==="
+echo "=== committing site dataset (updating submodule pointer) ==="
 cd "$SITE_DIR"
-datalad save -m "Update ${SUB_RELPATH} pointer after merge/unzip" "$SUB_RELPATH"
+git add "$SUB_RELPATH"
+git commit -m "Update ${SUB_RELPATH} pointer after merge/unzip"
 
 echo "Done."
