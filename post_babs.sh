@@ -15,40 +15,53 @@ set -Eeuo pipefail
 # subject (e.g. sub-0051456/...), so we unzip WITHOUT -d <subject> -- adding
 # an extra subject-named destination folder would double-nest the results.
 #
-# Ends with 'datalad save' to commit the unzipped results.
+# The update/get/unzip step is wrapped in 'datalad run', which commits
+# (saves) the result automatically within the derivatives dataset, with the
+# wrapped command recorded in the commit message.
+#
+# The derivatives dataset is itself a submodule of its site dataset (e.g.
+# derivatives/babs-fsl-nidm4.5.0 under site-Caltech), so after datalad run
+# moves its HEAD forward, the site dataset's recorded pointer for that
+# submodule goes stale. This script also 'datalad save's the site dataset
+# (assumed to be two levels up: <derivatives_dir>/../..) to keep that
+# pointer in sync.
 
 if [[ $# -ne 1 ]]; then
   echo "Usage: $0 <derivatives_dir>" >&2
   exit 1
 fi
 
-DERIVATIVES_DIR="$1"
+DERIVATIVES_DIR="$(realpath "$1")"
+SITE_DIR="$(realpath "$DERIVATIVES_DIR/../..")"
 
 [[ -d "$DERIVATIVES_DIR" ]] || { echo "ERROR: derivatives dir not found: $DERIVATIVES_DIR" >&2; exit 1; }
+[[ -d "$SITE_DIR/.git"  ]] || { echo "ERROR: expected a site dataset at $SITE_DIR (no .git)" >&2; exit 1; }
 
 command -v babs    >/dev/null 2>&1 || { echo "ERROR: babs not found" >&2; exit 1; }
 command -v datalad >/dev/null 2>&1 || { echo "ERROR: datalad not found" >&2; exit 1; }
 command -v unzip   >/dev/null 2>&1 || { echo "ERROR: unzip not found" >&2; exit 1; }
+
+SUB_RELPATH="$(realpath --relative-to="$SITE_DIR" "$DERIVATIVES_DIR")"
 
 echo "=== babs merge ==="
 babs merge "$DERIVATIVES_DIR"
 
 cd "$DERIVATIVES_DIR"
 
-echo "=== datalad update from output sibling ==="
-datalad update --how ff-only --sibling output
+echo "=== datalad run: update, get, unzip ==="
+datalad run -m "Merge and unzip babs results" bash -c '
+  set -e
+  datalad update --how ff-only --sibling output
+  datalad get ./*.zip
+  for zip_file in sub-*.zip; do
+    [[ -e "$zip_file" ]] || continue
+    echo "unzipping $zip_file"
+    unzip -n "$zip_file"
+  done
+'
 
-echo "=== datalad get result zips ==="
-datalad get ./*.zip
-
-echo "=== unzipping ==="
-for zip_file in sub-*.zip; do
-  [[ -e "$zip_file" ]] || continue
-  echo "unzipping $zip_file"
-  unzip -n "$zip_file"
-done
-
-echo "=== datalad save ==="
-datalad save -m "Merge and unzip babs results"
+echo "=== datalad save (site dataset, updating submodule pointer) ==="
+cd "$SITE_DIR"
+datalad save -m "Update ${SUB_RELPATH} pointer after merge/unzip" "$SUB_RELPATH"
 
 echo "Done."
