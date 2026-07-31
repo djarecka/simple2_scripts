@@ -15,8 +15,7 @@ set -Eeuo pipefail
 # subject (e.g. sub-0051456/...), so we unzip WITHOUT -d <subject> -- adding
 # an extra subject-named destination folder would double-nest the results.
 #
-# This does not commit the unzipped results; review with 'git status' /
-# 'datalad status' and run 'datalad save' yourself when ready.
+# Ends with 'datalad save' to commit the unzipped results.
 
 if [[ $# -ne 1 ]]; then
   echo "Usage: $0 <derivatives_dir>" >&2
@@ -49,4 +48,7 @@ for zip_file in sub-*.zip; do
   unzip -n "$zip_file"
 done
 
-echo "Done. Review with 'git status' / 'datalad status', then 'datalad save' when ready."
+echo "=== datalad save ==="
+datalad save -m "Merge and unzip babs results"
+
+echo "Done."
