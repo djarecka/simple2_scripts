@@ -19,15 +19,16 @@ set -Eeuo pipefail
 # (saves) the result automatically within the derivatives dataset, with the
 # wrapped command recorded in the commit message.
 #
-# The derivatives dataset is itself a submodule of its site dataset (e.g.
-# derivatives/babs-fsl-nidm4.5.0 under site-Caltech), so after datalad run
-# moves its HEAD forward, the site dataset's recorded pointer for that
-# submodule goes stale. This script commits that pointer update in the site
-# dataset (assumed to be two levels up: <derivatives_dir>/../..) with plain
-# 'git add' + 'git commit' -- 'datalad save' scoped to a single subdataset
-# path was found to silently no-op (no error, no commit) on this datalad
-# version (1.2.1), while an unscoped 'datalad save' works but risks sweeping
-# in unrelated pending changes elsewhere in the site dataset.
+# After 'datalad run' moves the derivatives dataset's HEAD forward, the site
+# dataset's recorded pointer for it goes stale; this script commits that
+# pointer update in the site dataset (two levels up).
+#
+# Use the 'datalad save -d "$SITE_DIR" ... -- <relpath>' form (verified on
+# datalad 1.6.1). A plain path-scoped 'datalad save -m "..." <path>' silently
+# no-ops on a pointer-only change (still true on 1.6.1). This form stays
+# scoped (won't sweep in unrelated changes) and, unlike the old 'git add', it
+# also registers a new subdataset in .gitmodules -- raw 'git add' left
+# "gitlink-only" entries that broke 'git submodule status'.
 
 if [[ $# -ne 1 ]]; then
   echo "Usage: $0 <derivatives_dir>" >&2
@@ -64,8 +65,6 @@ datalad run -m "Merge and unzip babs results" bash -c '
 '
 
 echo "=== committing site dataset (updating submodule pointer) ==="
-cd "$SITE_DIR"
-git add "$SUB_RELPATH"
-git commit -m "Update ${SUB_RELPATH} pointer after merge/unzip"
+datalad save -d "$SITE_DIR" -m "Update ${SUB_RELPATH} pointer after merge/unzip" -- "$SUB_RELPATH"
 
 echo "Done."
