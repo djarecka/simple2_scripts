@@ -65,6 +65,13 @@ datalad run -m "Merge and unzip babs results" bash -c '
 '
 
 echo "=== committing site dataset (updating submodule pointer) ==="
+# Run this from inside $SITE_DIR. datalad resolves the path argument relative
+# to the current working directory, NOT relative to -d. Up to here cwd is
+# still $DERIVATIVES_DIR (from the cd above), so a relative "derivatives/..."
+# arg resolves to a nonexistent nested path and 'save' silently no-ops
+# ("notneeded", exit 0) without registering the subdataset. cd'ing to
+# $SITE_DIR first makes $SUB_RELPATH resolve correctly.
+cd "$SITE_DIR"
 datalad save -d "$SITE_DIR" -m "Update ${SUB_RELPATH} pointer after merge/unzip" -- "$SUB_RELPATH"
 
 echo "Done."
