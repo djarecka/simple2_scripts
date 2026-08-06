@@ -64,6 +64,18 @@ datalad run -m "Merge and unzip babs results" bash -c '
   done
 '
 
+echo "=== dropping now-redundant result zips ==="
+# The zip content is now redundant with the unzipped sub-*/ dirs. Drop the
+# annexed content to reclaim local disk (the symlinks stay tracked; content
+# is still in the 'output' RIA sibling we just got it from, so datalad drop's
+# default numcopies check passes). Run from inside $DERIVATIVES_DIR (still cwd
+# here). Guard the glob so a re-run with no zips doesn't error under set -e.
+if compgen -G "sub-*.zip" >/dev/null; then
+  datalad drop sub-*.zip
+else
+  echo "no zips to drop"
+fi
+
 echo "=== committing site dataset (updating submodule pointer) ==="
 # Run this from inside $SITE_DIR. datalad resolves the path argument relative
 # to the current working directory, NOT relative to -d. Up to here cwd is
