@@ -1,7 +1,22 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-# Usage: ./script.sh <raw_data> <output_ttl> <PYNIDM_VERSION>
+# Usage: ./script.sh [--dry-run] <raw_data> <output_ttl> <PYNIDM_VERSION>
+#
+# --dry-run: do not touch datalad at all -- fetch the CSV map file(s) with curl
+#   instead of `datalad addurls`, require the conda env to already exist (no
+#   create/install), and skip every `datalad save`. Meant to be driven by
+#   add_nidm_dataset.sh --dry-run.
+
+DRY_RUN=0
+POS=()
+for arg in "$@"; do
+  case "$arg" in
+    --dry-run) DRY_RUN=1 ;;
+    *) POS+=("$arg") ;;
+  esac
+done
+set -- "${POS[@]}"
 
 raw_data="$1"
 output_ttl="$2"
@@ -34,8 +49,22 @@ fi
 
 # Add files from CSV into nidm (paths relative to nidm/)
 #echo " - addurls into nidm from CSV"
-datalad addurls  --ifexists overwrite "$NIDM_URL_CSV" '{url}' '{path}'
-datalad save -m "Add files via addurls from NIDM_URL_CSV"
+if [[ $DRY_RUN -eq 1 ]]; then
+  command -v curl >/dev/null 2>&1 || { echo "ERROR: curl not found (needed for --dry-run)" >&2; exit 1; }
+  echo " - DRY RUN: fetching map file(s) from CSV via curl (no datalad addurls/save)"
+  # CSV columns: url,path  (path is relative to the current dir). Skip the header;
+  # the `|| [[ -n "$url" ]]` keeps the last row when the file has no trailing newline.
+  tail -n +2 "$NIDM_URL_CSV" | while IFS=, read -r url path || [[ -n "$url" ]]; do
+    [[ -z "$url" ]] && continue
+    path="${path%$'\r'}"
+    mkdir -p "$(dirname "$path")"
+    echo "   $url -> $path"
+    curl -fsSL "$url" -o "$path"
+  done
+else
+  datalad addurls  --ifexists overwrite "$NIDM_URL_CSV" '{url}' '{path}'
+  datalad save -m "Add files via addurls from NIDM_URL_CSV"
+fi
 
 conda activate "$ENV_NAME"
 echo "Environment '$ENV_NAME' with pynidm==${PYNIDM_VERSION} activated"
