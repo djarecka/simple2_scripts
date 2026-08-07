@@ -16,8 +16,11 @@ Usage:
 
 Example (requires babs):
 ```
-datalad run bash post_babs.sh /orcd/data/satra/002/datasets/simple2_datalad/study-ABIDE/site-KKI/derivatives/babs-fsl-nidm4.5.0
+./post_babs.sh /orcd/data/satra/002/datasets/simple2_datalad/study-ABIDE/site-KKI/derivatives/babs-fsl-nidm4.5.0
 ```
+
+(No outer `datalad run` wrapper needed — `post_babs.sh` already commits at the
+correct dataset levels internally, unlike `add_nidm_dataset.sh` below.)
 
 ## add_nidm_dataset.sh
 
