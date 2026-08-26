@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-# Usage: ./script.sh [--dry-run] <PYNIDM_VERSION> [NIDM_DERIVATIVE_NAME]
+# Usage: ./script.sh [--dry-run] [--multiple_session] <PYNIDM_VERSION> [NIDM_DERIVATIVE_NAME]
 #
 # --dry-run: generate the NIDM files into a plain, UNTRACKED directory
 #   (derivatives/<name>_<version>_test) -- no datalad subdataset, no save.
@@ -9,14 +9,21 @@ set -Eeuo pipefail
 #   pynidm (e.g. the linkml branch via the pynidm_dev env, i.e. VERSION=dev).
 
 DRY_RUN=0
+MULTI_SESSION=0
 POS=()
 for arg in "$@"; do
   case "$arg" in
     --dry-run) DRY_RUN=1 ;;
+    --multiple_session) MULTI_SESSION=1 ;;
     *) POS+=("$arg") ;;
   esac
 done
 set -- "${POS[@]}"
+
+# Pass-through for create_nidm.sh (empty array expands to nothing under set -u
+# only with the [@] form, hence the explicit declaration).
+MULTI_SESSION_ARG=()
+[[ $MULTI_SESSION -eq 1 ]] && MULTI_SESSION_ARG=(--multiple_session)
 
 PYNIDM_VERSION="$1"
 NIDM_DERIVATIVE="${2:-nidm}_$PYNIDM_VERSION"
@@ -61,7 +68,7 @@ if [[ $DRY_RUN -eq 1 ]]; then
     nidm_dir="${nidm_dir}_test"
     echo " - DRY RUN: writing untracked NIDM into $nidm_dir (no datalad create/save)"
     mkdir -p "$nidm_dir"
-    ( cd "$nidm_dir" && bash "$SCRIPT_DIR/create_nidm.sh" "$STUDY_DIR/sourcedata/raw" "$STUDY_DIR/$nidm_dir" "$PYNIDM_VERSION" --dry-run )
+    ( cd "$nidm_dir" && bash "$SCRIPT_DIR/create_nidm.sh" "$STUDY_DIR/sourcedata/raw" "$STUDY_DIR/$nidm_dir" "$PYNIDM_VERSION" --dry-run "${MULTI_SESSION_ARG[@]}" )
     echo "✓ DRY RUN done: $nidm_dir (UNTRACKED; remove with: rm -rf '$STUDY_DIR/$nidm_dir')"
     exit 0
 fi
@@ -88,7 +95,7 @@ json_map="code/vars_to_nidm_map.json"
 output_ttl="$STUDY_DIR/$nidm_dir"
 echo "output ttl $output_ttl"
 
-datalad run bash code/create_nidm.sh "$raw_data" "$output_ttl" "$PYNIDM_VERSION"
+datalad run bash code/create_nidm.sh "$raw_data" "$output_ttl" "$PYNIDM_VERSION" "${MULTI_SESSION_ARG[@]}"
 
 cd $STUDY_DIR
 datalad save -m "Run the pynidm script and creating the nidm files, using pynidm verion: $PYNIDM_VERSION"

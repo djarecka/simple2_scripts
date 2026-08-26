@@ -7,12 +7,32 @@ set -Eeuo pipefail
 #   instead of `datalad addurls`, require the conda env to already exist (no
 #   create/install), and skip every `datalad save`. Meant to be driven by
 #   add_nidm_dataset.sh --dry-run.
+#
+# --multiple_session: after bidsmri2nidm, also place a copy of each subject's
+#   nidm.ttl under every session directory that subject has in the raw BIDS
+#   tree, i.e. sub-<id>/ses-<n>/nidm.ttl. The subject-level sub-<id>/nidm.ttl is
+#   KEPT, so both layouts resolve.
+#
+#   Note what this is and is not. pynidm's --per_subject emits ONE graph per
+#   subject covering all of that subject's sessions (plus the non-session
+#   material: the participants.tsv assessment, the Project node, and every
+#   PersonalDataElement). This option does not split that graph -- each session
+#   copy is the whole subject graph. It exists so that consumers globbing the
+#   older sub-*/ses-*/nidm.ttl convention find a file. Splitting per session is
+#   a modelling decision and belongs upstream in pynidm.
+#
+#   Cost is near zero in git: identical content is one blob however many copies
+#   the working tree holds. Sessions are read from the raw BIDS tree, which is
+#   authoritative; a subject with no ses-* dirs (e.g. ABIDE1) is left flat, so
+#   passing this flag on a single-session study is a safe no-op.
 
 DRY_RUN=0
+MULTI_SESSION=0
 POS=()
 for arg in "$@"; do
   case "$arg" in
     --dry-run) DRY_RUN=1 ;;
+    --multiple_session) MULTI_SESSION=1 ;;
     *) POS+=("$arg") ;;
   esac
 done
@@ -95,13 +115,39 @@ bidsmri2nidm \
   -o "$output_ttl" \
   -no_concepts
 
-# TODO: adding a flag
-# renaming 
-#for f in sub-*_nidm.ttl; do
-#    sub="${f%_nidm.ttl}"
-#    mkdir -p "$sub"
-#    mv "$f" "$sub/nidm.ttl"
-#done
+# Optional per-session layout. See the --multiple_session note at the top:
+# this DUPLICATES the subject graph into each session dir, it does not split it.
+if [[ $MULTI_SESSION -eq 1 ]]; then
+  echo " - --multiple_session: adding per-session copies (sub-*/ses-*/nidm.ttl)"
+  n_sub=0; n_copy=0; n_flat=0; n_miss=0
+  for subdir in "$output_ttl"/sub-*; do
+    [[ -d "$subdir" ]] || continue
+    sub="$(basename "$subdir")"
+    ttl="$subdir/nidm.ttl"
+    if [[ ! -f "$ttl" ]]; then
+      echo "   WARNING: no nidm.ttl for $sub -- skipping" >&2
+      n_miss=$((n_miss + 1))
+      continue
+    fi
+    # Sessions come from the raw BIDS tree, not from the graph.
+    sessions=()
+    for s in "$raw_data/$sub"/ses-*; do
+      [[ -d "$s" ]] && sessions+=("$(basename "$s")")
+    done
+    if [[ ${#sessions[@]} -eq 0 ]]; then
+      n_flat=$((n_flat + 1))
+      continue
+    fi
+    for ses in "${sessions[@]}"; do
+      mkdir -p "$subdir/$ses"
+      cp "$ttl" "$subdir/$ses/nidm.ttl"
+      n_copy=$((n_copy + 1))
+    done
+    n_sub=$((n_sub + 1))
+  done
+  echo "   -> $n_copy session copies across $n_sub subjects" \
+       "($n_flat with no ses-* dirs left flat, $n_miss missing nidm.ttl)"
+fi
 
 #todo add logdir
 echo "Environment '$ENV_NAME' deactivated"
