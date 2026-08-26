@@ -22,14 +22,25 @@ PYNIDM_VERSION="$1"
 NIDM_DERIVATIVE="${2:-nidm}_$PYNIDM_VERSION"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 STUDY_DIR="$SCRIPT_DIR/.."
-NIDM_URL_CSV="$SCRIPT_DIR/url-nidm.csv"
+# Per-study map CSV. The study is the grandparent of this script's dir
+# (<study>/<site>/code), so it is derived rather than passed per-site.
+# An exported NIDM_URL_CSV overrides it (handy for testing a one-off map).
+STUDY_NAME="$(basename "$(cd "$SCRIPT_DIR/../.." && pwd)")"
+NIDM_URL_CSV="${NIDM_URL_CSV:-$SCRIPT_DIR/urls/$STUDY_NAME/url-nidm.csv}"
+# create_nidm.sh must not re-derive this: in the tracked path it runs from a
+# `code` clone nested inside the nidm subdataset, where $SCRIPT_DIR/../.. is
+# `derivatives`, not the study. Export so the child uses the resolved value.
+export NIDM_URL_CSV
 
 
 # datalad only needed for the real (tracked) run
 [[ $DRY_RUN -eq 1 ]] || command -v datalad >/dev/null 2>&1 || { echo "ERROR: datalad not found" >&2; exit 1; }
 
 [[ -d "$STUDY_DIR"    ]] || { echo "ERROR: study dir not found: $STUDY_DIR" >&2; exit 1; }
-[[ -f "$NIDM_URL_CSV" ]] || { echo "ERROR: CSV file not found: $NIDM_URL_CSV" >&2; exit 1; }
+# Fail loudly. Previously the filename was fixed, so a study with no map of its
+# own silently reused ABIDE's -- which mismatches every column on ABIDE2/ADHD200
+# and drives bidsmri2nidm into interactive annotation prompts.
+[[ -f "$NIDM_URL_CSV" ]] || { echo "ERROR: no NIDM map CSV for study '$STUDY_NAME': $NIDM_URL_CSV" >&2; exit 1; }
 
 
 # Logs outside datasets, under the caller's cwd

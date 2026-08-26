@@ -22,7 +22,14 @@ raw_data="$1"
 output_ttl="$2"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-NIDM_URL_CSV="$SCRIPT_DIR/url-nidm.csv"
+# Normally exported by add_nidm_dataset.sh (which resolves it per study).
+# The fallback covers running this script directly from <study>/<site>/code.
+if [[ -z "${NIDM_URL_CSV:-}" ]]; then
+  STUDY_NAME="$(basename "$(cd "$SCRIPT_DIR/../.." && pwd)")"
+  NIDM_URL_CSV="$SCRIPT_DIR/urls/$STUDY_NAME/url-nidm.csv"
+fi
+[[ -f "$NIDM_URL_CSV" ]] || { echo "ERROR: NIDM map CSV not found: $NIDM_URL_CSV" >&2; exit 1; }
+echo " - using NIDM map CSV: $NIDM_URL_CSV"
 
 # using specific version of pynidm
 PYNIDM_VERSION="$3"
