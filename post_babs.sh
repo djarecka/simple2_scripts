@@ -60,6 +60,33 @@ command -v git-annex >/dev/null 2>&1 || {
   exit 1
 }
 
+# Git refuses to operate on a repository owned by another user ("detected
+# dubious ownership") -- routine here, since these datasets get run by whoever
+# is doing the analysis, not only by the owner. Check it up front, because the
+# failure is otherwise both late and misdiagnosed: the 'git status' guard below
+# gets EMPTY stdout on refusal, which reads as "clean", and the next guarded
+# call ('git symbolic-ref HEAD') then reports "detached HEAD" -- pointing at
+# entirely the wrong problem.
+require_git_access() {   # $1 = repo path, $2 = human label
+  local out
+  if out="$(git -C "$1" rev-parse --git-dir 2>&1)"; then
+    return 0
+  fi
+  echo "ERROR: git cannot operate on the $2 at $1:" >&2
+  sed 's/^/    /' <<<"$out" >&2
+  if grep -qi 'dubious ownership' <<<"$out"; then
+    echo "  This is git's ownership guard, not a corrupt repo." >&2
+    echo "  Allow it, then re-run:" >&2
+    echo "    git config --global --add safe.directory '$1'" >&2
+    echo "  BABS datasets need the same for the site dataset, the derivatives" >&2
+    echo "  dataset, and the RIA stores under .babs/ -- see the 'dubious" >&2
+    echo "  ownership' recipe in notes/babs.md." >&2
+  fi
+  exit 1
+}
+require_git_access "$SITE_DIR"        "site dataset"
+require_git_access "$DERIVATIVES_DIR" "derivatives dataset"
+
 SUB_RELPATH="$(realpath --relative-to="$SITE_DIR" "$DERIVATIVES_DIR")"
 
 cd "$DERIVATIVES_DIR"
@@ -75,7 +102,19 @@ for stale in .git/rebase-merge .git/rebase-apply; do
     exit 1
   }
 done
-if [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then
+# Test the EXIT STATUS, not just whether the output is empty. Anything that
+# makes git refuse (dubious ownership, a missing git-annex for the
+# filter.annex.process hook, a broken submodule) writes to stderr and leaves
+# stdout empty -- and "empty" would otherwise be read as "clean", letting the
+# script walk into a rebase it was specifically told to guard. The '!' keeps
+# 'set -e' from firing so we can report it ourselves.
+if ! status_out="$(git status --porcelain --untracked-files=no)"; then
+  echo "ERROR: 'git status' failed in $DERIVATIVES_DIR (git's own error is above)." >&2
+  echo "  Cannot verify the dataset is clean, so not continuing -- a rebase from" >&2
+  echo "  an unverified state is exactly what this check exists to prevent." >&2
+  exit 1
+fi
+if [[ -n "$status_out" ]]; then
   echo "ERROR: uncommitted changes in $DERIVATIVES_DIR -- save or stash first:" >&2
   git status --short >&2
   exit 1
@@ -83,7 +122,56 @@ fi
 echo "clean, no rebase in progress"
 
 echo "=== babs merge ==="
-babs merge "$DERIVATIVES_DIR"
+# 'babs merge' is NOT idempotent, while every step after it is. It merges the
+# per-job 'job-*' branches from the output RIA and then DELETES them from the
+# RIA (babs/merge.py). So on a second invocation it finds zero job branches and
+# raises 'There is no successfully finished job yet. Please run `babs submit`
+# first.' -- a misleading message for a project where everything in fact
+# finished AND merged. Under 'set -e' that killed the script here, before any of
+# the resumable work below could run. Re-running after an interrupted run (a
+# timeout during the get/unzip of tens of GB is the normal way to get there) is
+# a routine recovery path, so detect the already-merged state and skip.
+#
+# Deliberately NOT '|| true': that would also swallow a genuine failure (RIA
+# unreachable, auth, a real merge conflict) and march on into sync, unzip and
+# the site-pointer save on a dataset that never merged, committing a pointer
+# that claims results it does not have.
+OUTPUT_RIA="$(git remote get-url output)" || {
+  echo "ERROR: no 'output' remote in $DERIVATIVES_DIR -- is this a BABS dataset?" >&2
+  exit 1; }
+
+# A previous 'babs merge' that was interrupted leaves 'merge_ds' behind, and
+# babs refuses to run again while it exists. Say so, but do not remove it: it
+# can hold the only copy of babs's invalid-job / missing-content reports.
+[[ -e "$DERIVATIVES_DIR/merge_ds" ]] && {
+  echo "ERROR: leftover 'merge_ds' from an interrupted 'babs merge':" >&2
+  echo "    $DERIVATIVES_DIR/merge_ds" >&2
+  echo "  babs will not merge while it exists. Check code/ inside it for" >&2
+  echo "  list_invalid_job_when_merging.txt and list_content_missing.txt," >&2
+  echo "  then remove it and re-run." >&2
+  exit 1
+}
+
+# Count unmerged result branches. Note babs's own helper returns an empty list
+# on ANY git failure, which would look identical to "already merged" -- so
+# check the exit status separately and never infer "nothing to merge" from an
+# error.
+if ! ria_heads="$(git ls-remote --heads "$OUTPUT_RIA")"; then
+  echo "ERROR: cannot list branches in the output RIA:" >&2
+  echo "    $OUTPUT_RIA" >&2
+  echo "  Refusing to guess whether a merge is needed." >&2
+  exit 1
+fi
+n_job_branches="$(grep -c $'\trefs/heads/job-' <<<"$ria_heads" || true)"
+
+if (( n_job_branches == 0 )); then
+  echo "no merge needed: 0 unmerged 'job-*' branches in the output RIA"
+  echo "  (babs merge deletes them once merged, so this is the already-merged"
+  echo "   state -- continuing with the sync/unzip steps below.)"
+else
+  echo "$n_job_branches unmerged 'job-*' branch(es) in the output RIA"
+  babs merge "$DERIVATIVES_DIR"
+fi
 
 # ---------------------------------------------------------------------------
 # Sync the local branch with the output RIA sibling.
