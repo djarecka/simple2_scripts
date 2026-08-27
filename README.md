@@ -21,21 +21,30 @@ can silently remove it again.
 
 **2. If you are not the owner of these datasets, add `safe.directory` entries.**
 Git refuses to operate on a repository owned by another user
-("`fatal: detected dubious ownership in repository at ...`"). You need an
-exception for the site dataset, its `code` submodule, the derivatives dataset
-you are processing, **and** the RIA stores under its `.babs/` directory:
+("`fatal: detected dubious ownership in repository at ...`"). You need one
+exception per repository that someone *else* owns — which repositories those are
+depends on the split, so check first:
 
 ```
 SITE=/orcd/data/satra/002/datasets/simple2_datalad/study-ABIDE/site-Caltech
 DERIV=$SITE/derivatives/<name>
-for p in "$SITE" "$SITE/code" "$DERIV" "$DERIV/.babs/input_ria" "$DERIV/.babs/output_ria"; do
-    git config --global --add safe.directory "$p"
-done
+stat -c '%U  %n' "$SITE/.git" "$SITE/code" "$DERIV/.git" \
+                 "$DERIV/.babs/input_ria" "$DERIV/.babs/output_ria"
 ```
 
-The RIA entries are easy to miss: the site and `code` alone are enough to get
-started, but the merge/sync steps talk to the RIA stores and will fail later
-without them.
+Then add an entry for each one not owned by you:
+
+```
+git config --global --add safe.directory <path>
+```
+
+In the usual arrangement — the site dataset and `code` belong to whoever set the
+study up, and you created the derivatives dataset yourself with `babs init` — only
+the site dataset and `code` need entries; the derivatives dataset and its RIA
+stores are already yours. If you are instead re-processing *someone else's*
+derivatives dataset, the `.babs/input_ria` and `.babs/output_ria` entries matter
+too, and they are easy to miss: the site and `code` alone let the script start,
+then the merge/sync steps fail later.
 
 This is deliberately *not* done by the scripts themselves. `safe.directory`
 exists to stop a repository owned by someone else from running code at you
